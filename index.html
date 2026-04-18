@@ -3,21 +3,20 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GA_CARD - Học Tiếng Anh (Lưu Máy Chủ)</title>
+    <title>GA_CARD - Học Tiếng Anh</title>
     
-    <!-- 1. Nhúng Tailwind CSS -->
+    <!-- Nhúng Tailwind CSS để tạo giao diện -->
     <script src="https://cdn.tailwindcss.com"></script>
     
-    <!-- 2. Nhúng React và ReactDOM -->
+    <!-- Nhúng React và ReactDOM -->
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    
+    <!-- Nhúng Babel để trình duyệt hiểu được mã JSX -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     
-    <!-- 3. NHÚNG MÁY CHỦ FIREBASE (Phiên bản Compat cho HTML trực tiếp) -->
-    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
-    
     <style>
+        /* CSS cho hiệu ứng lật thẻ 3D */
         .perspective-1000 { perspective: 1000px; }
         .transform-style-3d { transform-style: preserve-3d; }
         .backface-hidden { backface-visibility: hidden; }
@@ -29,34 +28,13 @@
 </head>
 <body class="bg-slate-50 text-slate-800 font-sans min-h-screen">
     
+    <!-- Nơi chứa toàn bộ ứng dụng -->
     <div id="root"></div>
 
     <script type="text/babel">
-        // ==========================================
-        // ⚠️ BƯỚC QUAN TRỌNG: DÁN CẤU HÌNH FIREBASE CỦA BẠN VÀO ĐÂY
-        // ==========================================
-        const firebaseConfig = {
-            // Thay thế bằng đoạn mã config bạn lấy từ Firebase nhé! Ví dụ:
-            // apiKey: "AIzaSyB-xxxxxxx...",
-            // authDomain: "gacard-xxx.firebaseapp.com",
-            // projectId: "gacard-xxx",
-            // storageBucket: "gacard-xxx.appspot.com",
-            // messagingSenderId: "123456789",
-            // appId: "1:123456:web:abcd123"
-        };
-
-        // Khởi tạo máy chủ
-        let db;
-        let isConfigured = Object.keys(firebaseConfig).length > 0;
-        
-        if (isConfigured) {
-            firebase.initializeApp(firebaseConfig);
-            db = firebase.firestore();
-        }
-
         const { useState, useEffect, useCallback } = React;
 
-        // --- Icon SVG ---
+        // --- Các Icon bằng SVG (Đảm bảo chạy offline không lỗi) ---
         const IconPlay = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>;
         const IconTrash = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>;
         const IconPlus = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>;
@@ -73,39 +51,36 @@
             const [errorMessage, setErrorMessage] = useState('');
             const [isLoaded, setIsLoaded] = useState(false);
 
-            // Tải dữ liệu từ Firestore Máy Chủ
+            // 1. LẤY DỮ LIỆU TỪ TRÌNH DUYỆT (LOCAL STORAGE) KHI MỞ APP
             useEffect(() => {
-                if (!isConfigured) {
-                    setIsLoaded(true);
-                    return;
+                const savedData = localStorage.getItem('gacard_data');
+                if (savedData) {
+                    try {
+                        setFlashcards(JSON.parse(savedData));
+                    } catch(e) {
+                        console.error("Lỗi đọc dữ liệu");
+                    }
                 }
-
-                // Lắng nghe dữ liệu trực tiếp từ đám mây (Cloud)
-                const unsubscribe = db.collection("flashcards").orderBy("createdAt", "desc").onSnapshot((snapshot) => {
-                    const fetchedCards = snapshot.docs.map(doc => ({
-                        id: doc.id,
-                        ...doc.data()
-                    }));
-                    setFlashcards(fetchedCards);
-                    setIsLoaded(true);
-                }, (error) => {
-                    console.error("Lỗi lấy dữ liệu:", error);
-                    setErrorMessage("Không kết nối được tới máy chủ.");
-                    setIsLoaded(true);
-                });
-
-                return () => unsubscribe();
+                setIsLoaded(true);
             }, []);
+
+            // 2. LƯU DỮ LIỆU LẠI VÀO TRÌNH DUYỆT MỖI KHI CÓ THAY ĐỔI
+            useEffect(() => {
+                if (isLoaded) {
+                    localStorage.setItem('gacard_data', JSON.stringify(flashcards));
+                }
+            }, [flashcards, isLoaded]);
 
             const showError = (msg) => {
                 setErrorMessage(msg);
                 setTimeout(() => setErrorMessage(''), 3000);
             };
 
-            if (!isLoaded) return <div className="text-center mt-20 text-slate-500">Đang tải máy chủ...</div>;
+            if (!isLoaded) return null;
 
             return (
                 <div>
+                    {/* Header */}
                     <nav className="bg-white shadow-sm px-4 py-3 sticky top-0 z-10">
                         <div className="max-w-4xl mx-auto flex justify-between items-center">
                             <div 
@@ -115,20 +90,11 @@
                                 <span className="text-2xl" role="img" aria-label="chicken logo">🐔</span>
                                 <span>GA_CARD</span>
                             </div>
-                            <div className={`text-xs sm:text-sm px-3 py-1.5 rounded-full font-medium ${isConfigured ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}`}>
-                                {isConfigured ? '🟢 Đã kết nối Đám Mây' : '🔴 Thiếu cấu hình Máy Chủ'}
+                            <div className="text-xs sm:text-sm px-3 py-1.5 rounded-full font-medium bg-green-100 text-green-700">
+                                ✔️ Tự động lưu trên máy
                             </div>
                         </div>
                     </nav>
-
-                    {!isConfigured && (
-                        <div className="max-w-4xl mx-auto mt-4 px-4">
-                            <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded text-yellow-800 shadow-sm">
-                                <p className="font-bold">Chưa kết nối Máy chủ!</p>
-                                <p className="text-sm">Bạn chưa điền mã <code>firebaseConfig</code>. Hiện tại ứng dụng chỉ hiện giao diện ảo, không lưu được từ mới. Hãy điền cấu hình Firebase vào dòng số 32 của file index.html.</p>
-                            </div>
-                        </div>
-                    )}
 
                     {errorMessage && (
                         <div className="fixed top-20 left-1/2 transform -translate-x-1/2 bg-red-500 text-white px-6 py-3 rounded-lg shadow-lg z-50">
@@ -140,7 +106,7 @@
                         {view === 'dashboard' && (
                             <Dashboard 
                                 flashcards={flashcards} 
-                                isConfigured={isConfigured}
+                                setFlashcards={setFlashcards}
                                 onStudy={(list) => {
                                     setActiveStudyList(list);
                                     setView('study');
@@ -160,15 +126,16 @@
             );
         }
 
-        function Dashboard({ flashcards, isConfigured, onStudy, onError }) {
+        function Dashboard({ flashcards, setFlashcards, onStudy, onError }) {
             const [engWord, setEngWord] = useState('');
             const [viMeaning, setViMeaning] = useState('');
             const [selectedCardIds, setSelectedCardIds] = useState([]);
-            const [isAdding, setIsAdding] = useState(false);
+            
+            // State cho tính năng gợi ý dịch
             const [suggestedMeaning, setSuggestedMeaning] = useState('');
             const [isTranslating, setIsTranslating] = useState(false);
 
-            // Tự động dịch gợi ý sau khi người dùng ngừng gõ 800ms
+            // Tự động tìm gợi ý sau khi ngừng gõ 800ms
             useEffect(() => {
                 const word = engWord.trim();
                 if (!word || word.length < 2) {
@@ -183,7 +150,6 @@
                         const data = await res.json();
                         if (data && data.responseData && data.responseData.translatedText) {
                             const translation = data.responseData.translatedText;
-                            // Kiểm tra để tránh API trả về đúng từ tiếng Anh ban đầu
                             if (translation.toLowerCase() !== word.toLowerCase()) {
                                  setSuggestedMeaning(translation);
                             } else {
@@ -201,44 +167,34 @@
                 return () => clearTimeout(timer);
             }, [engWord]);
 
-            const handleAdd = async (e) => {
+            const handleAdd = (e) => {
                 e.preventDefault();
-                if (!isConfigured) {
-                    onError("Vui lòng cấu hình máy chủ trước khi lưu từ.");
-                    return;
-                }
                 if (!engWord.trim() || !viMeaning.trim()) {
                     onError("Vui lòng điền cả từ tiếng Anh và nghĩa tiếng Việt.");
                     return;
                 }
                 
-                setIsAdding(true);
-                try {
-                    // LƯU LÊN MÁY CHỦ FIREBASE
-                    await db.collection("flashcards").add({
-                        english: engWord.trim(),
-                        vietnamese: viMeaning.trim(),
-                        createdAt: firebase.firestore.FieldValue.serverTimestamp()
-                    });
-                    setEngWord('');
-                    setViMeaning('');
-                } catch (error) {
-                    console.error("Lỗi:", error);
-                    onError("Lỗi máy chủ khi lưu từ.");
-                } finally {
-                    setIsAdding(false);
-                }
+                // Tạo thẻ mới
+                const newCard = {
+                    id: Date.now().toString(),
+                    english: engWord.trim(),
+                    vietnamese: viMeaning.trim(),
+                    createdAt: Date.now()
+                };
+                
+                // Cập nhật danh sách (Thêm lên đầu)
+                setFlashcards([newCard, ...flashcards]);
+                
+                // Xóa form
+                setEngWord('');
+                setViMeaning('');
+                setSuggestedMeaning('');
             };
 
-            const handleDelete = async (id) => {
-                if (!isConfigured) return;
-                try {
-                    // XÓA TRÊN MÁY CHỦ FIREBASE
-                    await db.collection("flashcards").doc(id).delete();
-                    setSelectedCardIds(prev => prev.filter(cardId => cardId !== id));
-                } catch (error) {
-                    onError("Không xóa được. Lỗi máy chủ.");
-                }
+            const handleDelete = (id) => {
+                // Xóa thẻ khỏi danh sách
+                setFlashcards(flashcards.filter(c => c.id !== id));
+                setSelectedCardIds(prev => prev.filter(cardId => cardId !== id));
             };
 
             const toggleSelection = (id) => {
@@ -297,15 +253,15 @@
                                 />
                                 <button 
                                     type="submit"
-                                    disabled={!engWord.trim() || !viMeaning.trim() || isAdding}
+                                    disabled={!engWord.trim() || !viMeaning.trim()}
                                     className="bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-3 rounded-xl font-medium transition disabled:opacity-50 flex items-center justify-center min-w-[100px]"
                                 >
-                                    {isAdding ? 'Đang lưu...' : 'Thêm'}
+                                    Thêm
                                 </button>
                             </div>
                             
-                            {/* Phần hiển thị Gợi ý dịch tự động */}
-                            <div className="min-h-[24px] px-2 flex items-center">
+                            {/* Khu vực hiện gợi ý dịch tự động */}
+                            <div className="min-h-[24px] px-2 flex items-center mt-1">
                                 {isTranslating ? (
                                     <span className="text-sm text-slate-400">Đang tìm gợi ý dịch...</span>
                                 ) : suggestedMeaning && suggestedMeaning !== viMeaning && (
@@ -495,6 +451,7 @@
             );
         }
 
+        // Render React
         const root = ReactDOM.createRoot(document.getElementById('root'));
         root.render(<App />);
     </script>
